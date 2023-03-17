@@ -22,7 +22,7 @@ const MeetingJoinDetails = () => {
   const history = useHistory();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { meetingId, localUserName } = useAppState();
+  const { meetingId } = useAppState();
 
   const handleJoinMeeting = async () => {
     setIsLoading(true);
@@ -44,9 +44,6 @@ const MeetingJoinDetails = () => {
           label={isLoading ? 'Loading...' : 'Join meeting'}
           onClick={handleJoinMeeting}
         />
-        <Label style={{ margin: '.75rem 0 0 0' }}>
-          Joining meeting <b>{meetingId}</b> as <b>{localUserName}</b>
-        </Label>
       </Flex>
       {error && (
         <Modal size="md" onClose={(): void => setError('')}>

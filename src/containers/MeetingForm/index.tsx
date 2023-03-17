@@ -1,10 +1,9 @@
 // Copyright 2020-2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-import React, { ChangeEvent, useContext, useState } from 'react';
+import React, { ChangeEvent, useContext, useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
-  Checkbox,
   DeviceLabels,
   Flex,
   FormField,
@@ -18,21 +17,18 @@ import {
   useMeetingManager,
 } from 'amazon-chime-sdk-component-library-react';
 import {
-  DefaultBrowserBehavior,
   MeetingSessionConfiguration,
 } from 'amazon-chime-sdk-js';
 
 import { getErrorContext } from '../../providers/ErrorProvider';
 import routes from '../../constants/routes';
 import Card from '../../components/Card';
-import Spinner from '../../components/icons/Spinner';
 import DevicePermissionPrompt from '../DevicePermissionPrompt';
-import RegionSelection from './RegionSelection';
-import { createGetAttendeeCallback, fetchMeeting } from '../../utils/api';
 import { useAppState } from '../../providers/AppStateProvider';
 import { MeetingMode, VideoFiltersCpuUtilization } from '../../types';
 import { MeetingManagerJoinOptions } from 'amazon-chime-sdk-component-library-react/lib/providers/MeetingProvider/types';
 import meetingConfig from '../../meetingConfig';
+import { JOIN_INFO } from '../../constants';
 
 const VIDEO_TRANSFORM_FILTER_OPTIONS = [
   { value: VideoFiltersCpuUtilization.Disabled, label: 'Disable Video Filter' },
@@ -53,9 +49,7 @@ const VIDEO_TRANSFORM_FILTER_OPTIONS = [
 const MeetingForm: React.FC = () => {
   const meetingManager = useMeetingManager();
   const {
-    region,
     meetingId,
-    localUserName,
     meetingMode,
     enableSimulcast,
     priorityBasedPolicy,
@@ -63,54 +57,27 @@ const MeetingForm: React.FC = () => {
     isWebAudioEnabled,
     videoTransformCpuUtilization: videoTransformCpuUtilization,
     setJoinInfo,
-    isEchoReductionEnabled,
-    toggleEchoReduction,
-    toggleWebAudio,
-    toggleSimulcast,
-    togglePriorityBasedPolicy,
-    toggleKeepLastFrameWhenPaused,
     setMeetingMode,
     setMeetingId,
     setLocalUserName,
     setRegion,
-    setCpuUtilization,
   } = useAppState();
-  const [meetingErr, setMeetingErr] = useState(false);
-  const [nameErr, setNameErr] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const { errorMessage, updateErrorMessage } = useContext(getErrorContext());
   const history = useHistory();
-  const browserBehavior = new DefaultBrowserBehavior();
 
-  const handleJoinMeeting = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const id = meetingId.trim().toLocaleLowerCase();
-    const attendeeName = localUserName.trim();
 
-    if (!id || !attendeeName) {
-      if (!attendeeName) {
-        setNameErr(true);
-      }
+  useEffect(()=>{
+    handleJoinMeeting();
+  },[])
 
-      if (!id) {
-        setMeetingErr(true);
-      }
-
-      return;
-    }
-
-    setIsLoading(true);
-    meetingManager.getAttendee = createGetAttendeeCallback(id);
+  const handleJoinMeeting = async () => {
 
     try {
-      const { JoinInfo } = await fetchMeeting(
-        id,
-        attendeeName,
-        region,
-        isEchoReductionEnabled
-      );
+      const JoinInfo:any = {...JOIN_INFO}
       console.log('Meeting Join Info', JoinInfo);
       setJoinInfo(JoinInfo);
+      setMeetingId(JoinInfo.Meeting.MeetingId);
+      setLocalUserName('Pushpendu Ghosh');
       const meetingSessionConfiguration:any = new MeetingSessionConfiguration(
         JoinInfo?.Meeting,
         JoinInfo?.Attendee
@@ -160,7 +127,6 @@ const MeetingForm: React.FC = () => {
     updateErrorMessage('');
     setMeetingId('');
     setLocalUserName('');
-    setIsLoading(false);
   };
 
   return (
@@ -168,123 +134,6 @@ const MeetingForm: React.FC = () => {
       <Heading tag="h1" level={4} css="margin-bottom: 1rem">
         Join a meeting
       </Heading>
-      <FormField
-        field={Input}
-        label="Meeting Id"
-        value={meetingId}
-        infoText="Anyone with access to the meeting ID can join"
-        fieldProps={{
-          name: 'meetingId',
-          placeholder: 'Enter Meeting Id',
-        }}
-        errorText="Please enter a valid meeting ID"
-        error={meetingErr}
-        onChange={(e: ChangeEvent<HTMLInputElement>): void => {
-          setMeetingId(e.target.value);
-          if (meetingErr) {
-            setMeetingErr(false);
-          }
-        }}
-      />
-      <FormField
-        field={Input}
-        label="Name"
-        value={localUserName}
-        fieldProps={{
-          name: 'name',
-          placeholder: 'Enter Your Name',
-        }}
-        errorText="Please enter a valid name"
-        error={nameErr}
-        onChange={(e: ChangeEvent<HTMLInputElement>): void => {
-          setLocalUserName(e.target.value);
-          if (nameErr) {
-            setNameErr(false);
-          }
-        }}
-      />
-      <RegionSelection setRegion={setRegion} region={region} />
-      <FormField
-        field={Checkbox}
-        label="Join w/o Audio and Video"
-        value=""
-        checked={meetingMode === MeetingMode.Spectator}
-        onChange={(): void => {
-          if (meetingMode === MeetingMode.Spectator) {
-            setMeetingMode(MeetingMode.Attendee);
-          } else {
-            setMeetingMode(MeetingMode.Spectator);
-          }
-        }}
-      />
-      <FormField
-        field={Checkbox}
-        label="Enable Web Audio"
-        value=""
-        checked={isWebAudioEnabled}
-        onChange={toggleWebAudio}
-        infoText="Enable Web Audio to use Voice Focus"
-      />
-      {/* Amazon Chime Echo Reduction is a premium feature, please refer to the Pricing page for details.*/}
-      {isWebAudioEnabled && (
-        <FormField
-          field={Checkbox}
-          label="Enable Echo Reduction"
-          value=""
-          checked={isEchoReductionEnabled}
-          onChange={toggleEchoReduction}
-          infoText="Enable Echo Reduction (new meetings only)"
-        />
-      )}
-      {/* BlurSelection */}
-      {/* Background Video Transform Selections */}
-      <FormField
-        field={Select}
-        options={VIDEO_TRANSFORM_FILTER_OPTIONS}
-        onChange={(e: ChangeEvent<HTMLSelectElement>): void => {
-          setCpuUtilization(e.target.value);
-        }}
-        value={videoTransformCpuUtilization}
-        label="Background Filters CPU Utilization"
-      />
-      {/* Video uplink and downlink policies */}
-      {browserBehavior.isSimulcastSupported() && (
-        <FormField
-          field={Checkbox}
-          label="Enable Simulcast"
-          value=""
-          checked={enableSimulcast}
-          onChange={toggleSimulcast}
-        />
-      )}
-
-      {browserBehavior.supportDownlinkBandwidthEstimation() && (
-        <FormField
-          field={Checkbox}
-          label="Use Priority-Based Downlink Policy"
-          value=""
-          checked={priorityBasedPolicy !== undefined}
-          onChange={togglePriorityBasedPolicy}
-        />
-      )}
-      <FormField
-        field={Checkbox}
-        label="Keep Last Frame When Paused"
-        value=""
-        checked={keepLastFrameWhenPaused}
-        onChange={toggleKeepLastFrameWhenPaused}
-      />
-      <Flex
-        container
-        layout="fill-space-centered"
-        style={{ marginTop: '2.5rem' }}
-      >
-        {isLoading ? (
-          <Spinner />
-        ) : (
-          <PrimaryButton label="Continue" onClick={handleJoinMeeting} />
-        )}
-      </Flex>
       {errorMessage && (
         <Modal size="md" onClose={closeError}>
           <ModalHeader title={`Meeting ID: ${meetingId}`} />
